@@ -13,22 +13,22 @@ import (
 const (
 	program = "gur"
 	version = "0.0.1"
-	dh      = false
-	dj      = false
 )
 
 var (
-	//rawurl = "http://localhost:80/"
-	rawurl    = "http://aur.archlinux.org:80/"
-	printf    = fmt.Printf
-	println   = fmt.Println
-	sprintf   = fmt.Sprintf
-	userAgent = sprintf("%v/%v", program, version)
+	//rawurl = "https://localhost:80/"
+	rawurl  = "https://aur.archlinux.org:443/"
+	printf  = fmt.Printf
+	println = fmt.Println
+	sprintf = fmt.Sprintf
+	// FIXME: change to final program name when decided. Use this so as not to give wrong userAgent
+	//userAgent = sprintf("%v/%v", program, version)
+	userAgent = "curl/7.21.4 (x86_64-unknown-linux-gnu) libcurl/7.21.4 OpenSSL/1.0.0d zlib/1.2.5"
 	quiet     = flag.Bool("q", false, "only output package names")
 	search    = flag.Bool("v", true, "search aur for packages")
 	download  = flag.Bool("d", false, "download and extract tarball into working path")
-	debug     = flag.Bool("dh", dh, "debug http headers")
-	dumpjson  = flag.Bool("dj", dj, "dump json to stderr")
+	debug     = flag.Bool("dh", false, "debug http headers")
+	dumpjson  = flag.Bool("dj", false, "dump json to stderr")
 	aur       *Aur
 )
 
@@ -56,6 +56,7 @@ func main() {
 	usage()
 }
 
+//TODO: fix all the crazy err handling
 func doDownload() {
 	buf, err := getResults("info")
 	handleError(err)
@@ -64,7 +65,15 @@ func doDownload() {
 	info := new(Info)
 	err = json.Unmarshal(buf, info)
 	handleError(err)
-	printf("%v%v\n", rawurl, info.Results.URLPath)
+	res, err := aur.GetTarBall(info.Results.URLPath)
+	handleError(err)
+	zbuf := new(bytes.Buffer)
+	io.Copy(zbuf, res.Body)
+	zip := NewZip()
+	gzip, err := gzip.NewReader(zbuf)
+	handleError(err)
+	err = zip.Decompress("./", gzip)
+	handleError(err)
 }
 
 func doSearch() {

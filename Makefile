@@ -1,7 +1,7 @@
 include $(GOROOT)/src/Make.inc
 
 TARG=gur
-GOFILES=gur.go aur.go
+GOFILES=gur.go aur.go goarchive.go
 GOFMT=gofmt -s -l -w
 
 include $(GOROOT)/src/Make.cmd
@@ -11,3 +11,4 @@ format:
 
 test: format all
 	time ./${TARG} -d gobuild-hg
+	time cower -fd gobuild-hg

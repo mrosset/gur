@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"http"
 	"net"
 	"os"
@@ -58,7 +59,7 @@ func NewAur() (*Aur, os.Error) {
 	if aur.url, err = http.ParseURL(rawurl); err != nil {
 		return nil, err
 	}
-	if tcpConn, err = net.Dial("tcp", aur.url.Host); err != nil {
+	if tcpConn, err = tls.Dial("tcp", aur.url.Host, nil); err != nil {
 		return nil, err
 	}
 	aur.conn = http.NewClientConn(tcpConn, nil)
