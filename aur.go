@@ -3,8 +3,12 @@ package main
 import (
 	"crypto/tls"
 	"http"
-	"net"
 	"os"
+)
+
+const (
+	rpc      = "rpc.php?type=%v&arg=%v"
+	pkgbuild = "packages/%v/PKGBUILD"
 )
 
 type SearchResults struct {
@@ -50,20 +54,34 @@ type Aur struct {
 	url  *http.URL
 }
 
-func NewAur() (*Aur, os.Error) {
+func NewAur(rawurl string) (*Aur, os.Error) {
 	var (
-		aur     = new(Aur)
-		err     os.Error
-		tcpConn net.Conn
+		aur = new(Aur)
+		err os.Error
 	)
 	if aur.url, err = http.ParseURL(rawurl); err != nil {
 		return nil, err
 	}
-	if tcpConn, err = tls.Dial("tcp", aur.url.Host, nil); err != nil {
-		return nil, err
+	aur.connect()
+	return aur, nil
+}
+
+func (aur *Aur) connect() os.Error {
+	tcpConn, err := tls.Dial("tcp", aur.url.Host, nil)
+	if err != nil {
+		return err
 	}
 	aur.conn = http.NewClientConn(tcpConn, nil)
-	return aur, nil
+	return nil
+}
+
+func (aur *Aur) GetPkgbuild(name string) (res *http.Response, err os.Error) {
+	req, err := aur.Request("GET", sprintf(pkgbuild, name))
+	if err != nil {
+		return nil, err
+	}
+	res, err = aur.doRequest(req)
+	return res, err
 }
 
 func (aur *Aur) GetTarBall(urlpath string) (res *http.Response, err os.Error) {
@@ -71,21 +89,20 @@ func (aur *Aur) GetTarBall(urlpath string) (res *http.Response, err os.Error) {
 	if err != nil {
 		return nil, err
 	}
-	res, err = doRequest(req)
+	res, err = aur.doRequest(req)
 	return res, err
 }
 
 func (aur *Aur) Method(method, arg string) (res *http.Response, err os.Error) {
-	const rpcstring = "rpc.php?type=%v&arg=%v"
-	req, err := aur.Request("GET", sprintf(rpcstring, method, arg))
+	req, err := aur.Request("GET", sprintf(rpc, method, arg))
 	if err != nil {
 		return nil, err
 	}
-	res, err = doRequest(req)
+	res, err = aur.doRequest(req)
 	return res, err
 }
 
-func doRequest(req *http.Request) (res *http.Response, err os.Error) {
+func (aur *Aur) doRequest(req *http.Request) (res *http.Response, err os.Error) {
 	if *debug {
 		b, err := http.DumpRequest(req, true)
 		if err != nil {
@@ -94,7 +111,11 @@ func doRequest(req *http.Request) (res *http.Response, err os.Error) {
 		os.Stderr.Write(b)
 	}
 	if res, err = aur.conn.Do(req); err != nil {
-		return nil, err
+		if err != http.ErrPersistEOF {
+			return nil, err
+		}
+		aur.connect()
+		aur.conn.Do(req)
 	}
 	if *debug {
 		b, err := http.DumpResponse(res, false)
