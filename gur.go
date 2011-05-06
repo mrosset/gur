@@ -54,22 +54,19 @@ func main() {
 	aur, err = NewAur(host)
 	handleError(err)
 	defer aur.Close()
-	if *test {
-		doTest()
-		os.Exit(0)
-	}
 	if *help {
 		flag.Usage()
 		os.Exit(0)
 	}
 	if *download {
+		loadSyncCache()
 		*search = false
 		if len(flag.Args()) == 0 {
 			err := os.NewError("no packages specified")
 			handleError(err)
 		}
-		doDownload(flag.Arg(0))
 		checkDepends(flag.Arg(0))
+		doDownload(flag.Arg(0))
 		os.Exit(0)
 	}
 	if *search {
@@ -77,10 +74,6 @@ func main() {
 		os.Exit(0)
 	}
 	flag.Usage()
-}
-
-func doTest() {
-	printf("%v\n", isInstalled("xorg-server"))
 }
 
 //TODO: fix all the crazy err handling
@@ -114,19 +107,18 @@ func checkDepends(name string) {
 	handleError(err)
 	pb := new(bytes.Buffer)
 	pb.ReadFrom(gzip)
-	depends := new(bytes.Buffer)
-	for _, v := range [][]byte{[]byte("depends"), []byte("makedepends")} {
-		depends.Write(parseBashArray(pb.Bytes(), v))
-		depends.WriteString(" ")
+	dbuf := new(bytes.Buffer)
+	for _, v := range []string{"depends", "makedepends"} {
+		dbuf.Write(parseBashArray(pb.Bytes(), v))
 	}
-	for {
-		b, err := depends.ReadBytes(' ')
-		if err == os.EOF {
-			break
-		}
+	for _, b := range bytes.Split(dbuf.Bytes(), []byte(" "), -1) {
 		depend := strings.Trim(string(b), " ")
-		doDownload(depend)
+		fprintf(tw, "%s\t%s\n", depend, whichRepo(depend))
+		if whichRepo(depend) == "aur" {
+			doDownload(depend)
+		}
 	}
+	tw.Flush()
 }
 
 // Calls search rpc and prints results
@@ -193,26 +185,24 @@ func handleError(err os.Error) {
 	}
 }
 
-func parseBashArray(pkgbuild, bvar []byte) []byte {
+func parseBashArray(pkgbuild []byte, bvar string) []byte {
 	pkg := bytes.NewBuffer(pkgbuild)
 	depends := new(bytes.Buffer)
-	defer pkg.Reset()
-	defer depends.Reset()
 	for {
 		line, err := pkg.ReadBytes('\n')
 		if err == os.EOF {
 			break
 		}
-		if bytes.HasPrefix(line, bvar) {
-			// write depend line but remove the var name
-			depends.Write(bytes.Replace(line, bvar, nil, 1))
+		if bytes.HasPrefix(line, []byte(bvar)) {
 			// if line ends with ) then we have what we need
 			if line[len(line)-2] == ')' {
+				depends.Write(line[len(bvar)+2 : len(line)-2])
 				break
 			}
+			depends.Write(line[2:])
 			// find end of array and write it to depends buffer
 			rest, _ := pkg.ReadBytes(')')
-			depends.Write(rest)
+			depends.Write(rest[0 : len(rest)-2])
 		}
 	}
 	if len(depends.Bytes()) == 0 {
@@ -220,17 +210,23 @@ func parseBashArray(pkgbuild, bvar []byte) []byte {
 	}
 	b := depends.Bytes()
 	depends.Reset()
-	// loop though bytes and remove unwanted spaces and characters, then write to depends buffer
-	for i := 0; i < len(b); i++ {
-		switch b[i] {
-		case ' ':
-			if b[i+1] != ' ' && b[i-1] != ' ' {
-				depends.WriteByte(b[i])
-			}
-		case '\'', '(', ')', '=', '<', '>', '.', '\n', '\t', '\\':
+	for _, d := range bytes.Split(b, []byte(" "), -1) {
+		if d[0] == '\'' {
+			d = d[1 : len(d)-1]
+		}
+		switch {
+		case strings.Contains(string(d), ">"):
+			s := bytes.Split(d, []byte(">"), -1)
+			depends.WriteString(string(s[0]) + " ")
+		case strings.Contains(string(d), "<"):
+			s := bytes.Split(d, []byte("<"), -1)
+			depends.WriteString(string(s[0]) + " ")
+		case strings.Contains(string(d), "="):
+			s := bytes.Split(d, []byte("="), -1)
+			depends.WriteString(string(s[0]) + " ")
 		default:
-			depends.WriteByte(b[i])
+			depends.WriteString(string(d) + " ")
 		}
 	}
-	return depends.Bytes()
+	return depends.Bytes()[0 : len(depends.Bytes())-1]
 }

@@ -1,9 +1,18 @@
 package main
 
 import (
+	"archive/tar"
+	"bytes"
 	"path"
 	"path/filepath"
 	"strings"
+	"compress/gzip"
+	"io"
+	"os"
+)
+
+var (
+	packages = map[string]map[string]string{}
 )
 
 const (
@@ -32,29 +41,96 @@ func getName(p string) string {
 	return strings.Join(v, "-")
 }
 
-func whichSync(name string) string {
-	glob := path.Join(sycndb, "*/"+name+"-*")
-	results, err := filepath.Glob(glob)
+func readSyncDB(p string, c chan int) {
+	repo := path.Base(path.Base(p))
+	repo = repo[0 : len(repo)-3]
+	f, err := os.Open(p)
 	handleError(err)
-	for _, s := range results {
-		if getName(s) == name {
-			dir, _ := path.Split(s)
-			return path.Base(dir)
+	defer f.Close()
+	gr, err := gzip.NewReader(f)
+	handleError(err)
+	tr := tar.NewReader(gr)
+	for {
+		h, err := tr.Next()
+		if err != nil && err != os.EOF {
+			handleError(err)
+		}
+		if h == nil || err == os.EOF {
+			break
+		}
+		if h.Typeflag == tar.TypeDir {
+			buf := new(bytes.Buffer)
+			tr.Next()
+			io.Copy(buf, tr)
+			tr.Next()
+			io.Copy(buf, tr)
+			parseMeta(buf, repo)
 		}
 	}
-	return ""
+	c <- 1
 }
 
-func whichRepo(name string) string {
-	if isInstalled(name) {
+func parseMeta(buf *bytes.Buffer, repo string) {
+	var name string
+	pack := map[string]string{}
+	pack["REPO"] = repo
+	_, _ = buf.ReadByte()
+	for {
+		key, err := buf.ReadBytes('%')
+		if err == os.EOF {
+			break
+		}
+		key = bytes.Trim(key, "%")
+		values, _ := buf.ReadBytes('%')
+		values = bytes.Trim(values, "%")
+		values = bytes.Replace(values, []byte("\n"), []byte(" "), -1)
+		values = bytes.Trim(values, " ")
+		if string(key) == "NAME" {
+			name = string(values)
+		}
+		pack[string(key)] = string(values)
+	}
+	v, _ := packages[name]
+	if v != nil {
+		printf("%s exists\n", v)
+	}
+	packages[name] = pack
+}
+
+func loadSyncCache() {
+	glob := path.Join(sycndb, "*.db")
+	results, err := filepath.Glob(glob)
+	handleError(err)
+	c := make(chan int)
+	for _, v := range results {
+		printf("reading %s\n", v)
+		go readSyncDB(v, c)
+	}
+	for _ = range results {
+		<-c
+	}
+}
+
+func whichRepo(pack string) string {
+	if isInstalled(pack) {
 		return "installed"
 	}
-	repo := whichSync(name)
-	switch repo {
-	case "":
-		return "aur"
-	default:
-		return repo
+	_, ok := packages[pack]
+	if ok {
+		return packages[pack]["REPO"]
 	}
-	return ""
+	p := findProvides(pack)
+	if p == nil {
+		return "aur"
+	}
+	return p["REPO"]
+}
+
+func findProvides(pack string) map[string]string {
+	for _, p := range packages {
+		if strings.Contains(p["PROVIDES"], pack) {
+			return p
+		}
+	}
+	return nil
 }

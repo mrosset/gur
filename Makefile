@@ -10,8 +10,8 @@ include $(GOROOT)/src/Make.cmd
 format:
 	${GOFMT} .
 
-test: format all
-	./${TARG} -d yi
+test: format all install
+	time ${TARG} -d yi
 
 gur.o:
 	${CC} ${CFLAGS} -c ${GOFILES} -o gur.o
