@@ -112,8 +112,12 @@ func checkDepends(name string) {
 	dbuf := new(bytes.Buffer)
 	for _, v := range []string{"depends", "makedepends"} {
 		dbuf.Write(parseBashArray(pb.Bytes(), v))
+		dbuf.WriteString(" ")
 	}
 	for _, b := range bytes.Split(dbuf.Bytes(), []byte(" "), -1) {
+		if len(b) == 0 {
+			continue
+		}
 		depend := strings.Trim(string(b), " ")
 		repo, pr := whichRepo(depend)
 		switch pr {
