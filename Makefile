@@ -12,6 +12,7 @@ format:
 
 test: format all install
 	time ${TARG} -d yi
+	time ${TARG} -d chromium-dev
 
 gur.o:
 	${CC} ${CFLAGS} -c ${GOFILES} -o gur.o

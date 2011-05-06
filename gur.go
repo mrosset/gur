@@ -78,6 +78,9 @@ func main() {
 
 //TODO: fix all the crazy err handling
 func doDownload(arg string) {
+	if fileExists(arg) {
+		return
+	}
 	buf, err := getResults("info", arg)
 	handleError(err)
 	err = checkInfoError(buf)
@@ -96,7 +99,6 @@ func doDownload(arg string) {
 	handleError(err)
 	err = zip.Decompress("./", gzip)
 	handleError(err)
-	zbuf.Reset()
 	printf("./%v\n", arg)
 }
 
@@ -113,8 +115,14 @@ func checkDepends(name string) {
 	}
 	for _, b := range bytes.Split(dbuf.Bytes(), []byte(" "), -1) {
 		depend := strings.Trim(string(b), " ")
-		fprintf(tw, "%s\t%s\n", depend, whichRepo(depend))
-		if whichRepo(depend) == "aur" {
+		repo, pr := whichRepo(depend)
+		switch pr {
+		case "":
+			fprintf(tw, "%s\t%s\t\n", depend, repo)
+		default:
+			fprintf(tw, "%s\t%s\t(%s)\n", depend, repo, pr)
+		}
+		if repo == "aur" {
 			doDownload(depend)
 		}
 	}
@@ -136,8 +144,9 @@ func doSearch() {
 	err = json.Unmarshal(buf, sr)
 	handleError(err)
 	for _, r := range sr.Results {
-		println(r.Format())
+		fprintln(tw, r.Format())
 	}
+	tw.Flush()
 }
 
 // Checks if rpc returned a error object
@@ -199,7 +208,7 @@ func parseBashArray(pkgbuild []byte, bvar string) []byte {
 				depends.Write(line[len(bvar)+2 : len(line)-2])
 				break
 			}
-			depends.Write(line[2:])
+			depends.Write(line[len(bvar)+2:])
 			// find end of array and write it to depends buffer
 			rest, _ := pkg.ReadBytes(')')
 			depends.Write(rest[0 : len(rest)-2])
@@ -211,9 +220,12 @@ func parseBashArray(pkgbuild []byte, bvar string) []byte {
 	b := depends.Bytes()
 	depends.Reset()
 	for _, d := range bytes.Split(b, []byte(" "), -1) {
-		if d[0] == '\'' {
-			d = d[1 : len(d)-1]
+		if len(d) == 0 {
+			continue
 		}
+		d = bytes.Replace(d, []byte("'"), nil, -1)
+		d = bytes.Replace(d, []byte("\n"), nil, -1)
+		d = bytes.Replace(d, []byte(" "), nil, -1)
 		switch {
 		case strings.Contains(string(d), ">"):
 			s := bytes.Split(d, []byte(">"), -1)

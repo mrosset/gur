@@ -111,19 +111,19 @@ func loadSyncCache() {
 	}
 }
 
-func whichRepo(pack string) string {
+func whichRepo(pack string) (string, string) {
 	if isInstalled(pack) {
-		return "installed"
+		return "installed", ""
 	}
 	_, ok := packages[pack]
 	if ok {
-		return packages[pack]["REPO"]
+		return packages[pack]["REPO"], ""
 	}
 	p := findProvides(pack)
 	if p == nil {
-		return "aur"
+		return "aur", ""
 	}
-	return p["REPO"]
+	return p["REPO"], p["NAME"]
 }
 
 func findProvides(pack string) map[string]string {
