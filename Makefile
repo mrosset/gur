@@ -10,9 +10,10 @@ include $(GOROOT)/src/Make.cmd
 format:
 	${GOFMT} .
 
-test: format all install
-	time ${TARG} -d yi
-	time ${TARG} -d chromium-dev
+test: format all
+	time ./${TARG} -d yi
+	@echo run git clean -fd to clean up
+	#time ${TARG} -d chromium-dev
 
 gur.o:
 	${CC} ${CFLAGS} -c ${GOFILES} -o gur.o

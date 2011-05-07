@@ -38,7 +38,7 @@ var (
 	download  = flag.Bool("d", false, "download and extract tarball into working path")
 	debug     = flag.Bool("dh", false, "debug http headers")
 	dumpjson  = flag.Bool("dj", false, "dump json to stderr")
-	aur       *Aur
+	//aur       *Aur
 )
 
 // Prints usage detains
@@ -51,7 +51,7 @@ func usage() {
 func main() {
 	flag.Parse()
 	var err os.Error
-	aur, err = NewAur(host)
+	aur, err := NewAur(host)
 	handleError(err)
 	defer aur.Close()
 	if *help {
@@ -79,7 +79,7 @@ func main() {
 //TODO: fix all the crazy err handling
 func doDownload(arg string) {
 	if fileExists(arg) {
-		return
+		//return
 	}
 	buf, err := getResults("info", arg)
 	handleError(err)
@@ -90,6 +90,7 @@ func doDownload(arg string) {
 	info := new(Info)
 	err = json.Unmarshal(buf, info)
 	handleError(err)
+	aur, _ := NewAur(host)
 	res, err := aur.GetTarBall(info.Results.URLPath)
 	handleError(err)
 	zbuf := new(bytes.Buffer)
@@ -103,6 +104,7 @@ func doDownload(arg string) {
 }
 
 func checkDepends(name string) {
+	aur, _ := NewAur(host)
 	res, err := aur.GetPkgbuild(name)
 	handleError(err)
 	gzip, err := gzip.NewReader(res.Body)
@@ -114,6 +116,8 @@ func checkDepends(name string) {
 		dbuf.Write(parseBashArray(pb.Bytes(), v))
 		dbuf.WriteString(" ")
 	}
+	count := 0
+	c := make(chan int)
 	for _, b := range bytes.Split(dbuf.Bytes(), []byte(" "), -1) {
 		if len(b) == 0 {
 			continue
@@ -127,8 +131,15 @@ func checkDepends(name string) {
 			fprintf(tw, "%s\t%s\t(%s)\n", depend, repo, pr)
 		}
 		if repo == "aur" {
-			doDownload(depend)
+			go func() {
+				count++
+				doDownload(depend)
+				c <- 1
+			}()
 		}
+	}
+	for i := 0; i < count; i++ {
+		<-c
 	}
 	tw.Flush()
 }
@@ -172,6 +183,7 @@ func checkInfoError(buf []byte) os.Error {
 // Generic call to rpc methods
 func getResults(method, arg string) ([]byte, os.Error) {
 	buf := new(bytes.Buffer)
+	aur, _ := NewAur(host)
 	res, err := aur.Method(method, arg)
 	if err != nil {
 		return nil, err
