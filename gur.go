@@ -20,7 +20,7 @@ const (
 	//rawurl = "https://localhost:80/"
 )
 
-// Globa vars
+// Global vars
 var (
 	printf   = fmt.Printf
 	println  = fmt.Println
@@ -31,31 +31,35 @@ var (
 	// FIXME: change to final program name when decided. Use this so as not to give wrong userAgent
 	//userAgent = sprintf("%v/%v", program, version)
 	userAgent = "curl/7.21.4 (x86_64-unknown-linux-gnu) libcurl/7.21.4 OpenSSL/1.0.0d zlib/1.2.5"
+	search    = flag.Bool("s", true, "search aur for packages")
 	help      = flag.Bool("h", false, "displays usage")
 	quiet     = flag.Bool("q", false, "only output package names")
 	test      = flag.Bool("t", false, "run tests")
-	search    = flag.Bool("v", true, "search aur for packages")
 	download  = flag.Bool("d", false, "download and extract tarball into working path")
 	debug     = flag.Bool("dh", false, "debug http headers")
-	dumpjson  = flag.Bool("dj", false, "dump json to stderr")
 	//aur       *Aur
 )
 
 // Prints usage detains
 func usage() {
-	flag.PrintDefaults()
+	printDefaults()
 	os.Exit(1)
 }
 
 // Program entry
 func main() {
 	flag.Parse()
+	flag.Usage = printDefaults
 	var err os.Error
 	aur, err := NewAur(host)
 	handleError(err)
 	defer aur.Close()
 	if *help {
 		flag.Usage()
+		os.Exit(0)
+	}
+	if *test {
+		doTest()
 		os.Exit(0)
 	}
 	if *download {
@@ -74,6 +78,21 @@ func main() {
 		os.Exit(0)
 	}
 	flag.Usage()
+}
+
+func printDefaults() {
+	fprintf(tw, "Usage of %s:\n\n", os.Args[0])
+	flag.VisitAll(vFlag)
+	tw.Flush()
+}
+
+func vFlag(f *flag.Flag) {
+	//format := "\t-%s=%s:\t%s\n"
+	format := "\t-%s:\t%s\n"
+	fprintf(tw, format, f.Name, f.Usage)
+}
+
+func doTest() {
 }
 
 //TODO: fix all the crazy err handling
