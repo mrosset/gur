@@ -7,13 +7,13 @@ CC=gccgo-4.7
 CFLAGS=-g -O2 -pipe
 include $(GOROOT)/src/Make.cmd
 
+CLEANFILES+=./tmp/*
+
 format:
 	${GOFMT} .
 
 test: format all
-	time ./${TARG} -d yi
-	@echo run git clean -fd to clean up
-	#time ${TARG} -d chromium-dev
+	cd tmp; time ../gur -d  yi
 
 gur.o:
 	${CC} ${CFLAGS} -c ${GOFILES} -o gur.o

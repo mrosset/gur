@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	rpc      = "rpc.php?type=%v&arg=%v"
-	pkgbuild = "packages/%v/PKGBUILD"
+	rpc      = "rpc.php?type=%s&arg=%s"
+	pkgbuild = "packages/%s/PKGBUILD"
+	tarball  = "packages/%s/%s.tar.gz"
 )
 
 type SearchResults struct {
@@ -84,12 +85,15 @@ func (aur *Aur) GetPkgbuild(name string) (res *http.Response, err os.Error) {
 	return res, err
 }
 
-func (aur *Aur) GetTarBall(urlpath string) (res *http.Response, err os.Error) {
-	req, err := aur.Request("GET", urlpath)
+func (aur *Aur) GetTarBall(name string) (res *http.Response, err os.Error) {
+	req, err := aur.Request("GET", sprintf(tarball, name, name))
 	if err != nil {
 		return nil, err
 	}
 	res, err = aur.doRequest(req)
+	if res.StatusCode != 200 {
+		return nil, os.NewError(sprintf("Http GET failed for %s with status code %s", res.Request.URL, res.Status))
+	}
 	return res, err
 }
 
@@ -134,7 +138,7 @@ func (aur *Aur) Request(method, rest string) (*http.Request, os.Error) {
 	req := new(http.Request)
 	req.ProtoMajor = 1
 	req.ProtoMinor = 1
-	req.TransferEncoding = []string{"chunked"}
+	//req.TransferEncoding = []string{"chunked"}
 	req.Header = http.Header{}
 	req.Header.Set("Accept-Encoding", "gzip,deflate")
 	req.Header.Set("Connection", "keep-alive")
@@ -144,7 +148,6 @@ func (aur *Aur) Request(method, rest string) (*http.Request, os.Error) {
 	if req.URL, err = http.ParseURL(url); err != nil {
 		return nil, err
 	}
-
 	return req, nil
 }
 

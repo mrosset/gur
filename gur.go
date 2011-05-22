@@ -63,12 +63,12 @@ func main() {
 		os.Exit(0)
 	}
 	if *download {
-		loadSyncCache()
-		*search = false
 		if len(flag.Args()) == 0 {
 			err := os.NewError("no packages specified")
 			handleError(err)
 		}
+		loadSyncCache()
+		*search = false
 		checkDepends(flag.Arg(0))
 		doDownload(flag.Arg(0))
 		os.Exit(0)
@@ -96,30 +96,25 @@ func doTest() {
 }
 
 //TODO: fix all the crazy err handling
-func doDownload(arg string) {
-	if fileExists(arg) {
+func doDownload(name string) {
+	if fileExists(name) {
 		//return
 	}
-	buf, err := getResults("info", arg)
+	buf, err := getResults("info", name)
 	handleError(err)
 	err = checkInfoError(buf)
 	if err != nil {
 		return
 	}
-	info := new(Info)
-	err = json.Unmarshal(buf, info)
-	handleError(err)
 	aur, _ := NewAur(host)
-	res, err := aur.GetTarBall(info.Results.URLPath)
+	res, err := aur.GetTarBall(name)
 	handleError(err)
-	zbuf := new(bytes.Buffer)
-	io.Copy(zbuf, res.Body)
-	zip := NewZip()
-	gzip, err := gzip.NewReader(zbuf)
+	tar := NewTar()
+	gzip, err := gzip.NewReader(res.Body)
 	handleError(err)
-	err = zip.Decompress("./", gzip)
+	err = tar.Untar("./", gzip)
 	handleError(err)
-	printf("./%v\n", arg)
+	//printf("./%v\n", name)
 }
 
 func checkDepends(name string) {
