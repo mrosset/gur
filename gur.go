@@ -16,8 +16,6 @@ import (
 const (
 	program = "gur"
 	version = "0.0.1"
-	host    = "https://aur.archlinux.org:443/"
-	//rawurl = "https://localhost:80/"
 )
 
 // Global vars
@@ -51,7 +49,7 @@ func main() {
 	flag.Parse()
 	flag.Usage = printDefaults
 	var err os.Error
-	aur, err := NewAur(host)
+	aur, err := NewAur()
 	handleError(err)
 	defer aur.Close()
 	if *help {
@@ -106,7 +104,7 @@ func doDownload(name string) {
 	if err != nil {
 		return
 	}
-	aur, _ := NewAur(host)
+	aur, _ := NewAur()
 	res, err := aur.GetTarBall(name)
 	handleError(err)
 	tar := NewTar()
@@ -118,7 +116,7 @@ func doDownload(name string) {
 }
 
 func checkDepends(name string) {
-	aur, _ := NewAur(host)
+	aur, _ := NewAur()
 	res, err := aur.GetPkgbuild(name)
 	handleError(err)
 	gzip, err := gzip.NewReader(res.Body)
@@ -197,7 +195,7 @@ func checkInfoError(buf []byte) os.Error {
 // Generic call to rpc methods
 func getResults(method, arg string) ([]byte, os.Error) {
 	buf := new(bytes.Buffer)
-	aur, _ := NewAur(host)
+	aur, _ := NewAur()
 	res, err := aur.Method(method, arg)
 	if err != nil {
 		return nil, err
