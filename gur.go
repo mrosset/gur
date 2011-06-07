@@ -2,14 +2,13 @@ package main
 
 import (
 	"bytes"
-	"compress/gzip"
 	"flag"
 	"fmt"
-	"io"
 	"json"
 	"os"
 	"strings"
 	"tabwriter"
+	"timer"
 )
 
 // Constants
@@ -28,13 +27,12 @@ var (
 	tw       = tabwriter.NewWriter(os.Stderr, 1, 4, 1, ' ', 0)
 	// FIXME: change to final program name when decided. Use this so as not to give wrong userAgent
 	//userAgent = sprintf("%v/%v", program, version)
-	userAgent = "curl/7.21.4 (x86_64-unknown-linux-gnu) libcurl/7.21.4 OpenSSL/1.0.0d zlib/1.2.5"
-	search    = flag.Bool("s", true, "search aur for packages")
-	help      = flag.Bool("h", false, "displays usage")
-	quiet     = flag.Bool("q", false, "only output package names")
-	test      = flag.Bool("t", false, "run tests")
-	download  = flag.Bool("d", false, "download and extract tarball into working path")
-	debug     = flag.Bool("dh", false, "debug http headers")
+	search   = flag.Bool("s", true, "search aur for packages")
+	help     = flag.Bool("h", false, "displays usage")
+	quiet    = flag.Bool("q", false, "only output package names")
+	test     = flag.Bool("t", false, "run tests")
+	download = flag.Bool("d", false, "download and extract tarball into working path")
+	debug    = flag.Bool("dh", false, "debug http headers")
 	//aur       *Aur
 )
 
@@ -46,12 +44,9 @@ func usage() {
 
 // Program entry
 func main() {
+	defer timer.From(timer.Now())
 	flag.Parse()
 	flag.Usage = printDefaults
-	var err os.Error
-	aur, err := NewAur()
-	handleError(err)
-	defer aur.Close()
 	if *help {
 		flag.Usage()
 		os.Exit(0)
@@ -69,11 +64,11 @@ func main() {
 		*search = false
 		checkDepends(flag.Arg(0))
 		doDownload(flag.Arg(0))
-		os.Exit(0)
+		return
 	}
 	if *search {
 		doSearch()
-		os.Exit(0)
+		return
 	}
 	flag.Usage()
 }
@@ -98,31 +93,20 @@ func doDownload(name string) {
 	if fileExists(name) {
 		//return
 	}
-	buf, err := getResults("info", name)
-	handleError(err)
-	err = checkInfoError(buf)
-	if err != nil {
-		return
-	}
 	aur, _ := NewAur()
-	res, err := aur.GetTarBall(name)
+	reader, err := aur.Tarball(name)
 	handleError(err)
 	tar := NewTar()
-	gzip, err := gzip.NewReader(res.Body)
+	err = tar.Untar("./", reader)
 	handleError(err)
-	err = tar.Untar("./", gzip)
-	handleError(err)
-	//printf("./%v\n", name)
+	printf("./%v\n", name)
 }
 
 func checkDepends(name string) {
 	aur, _ := NewAur()
-	res, err := aur.GetPkgbuild(name)
+	b, err := aur.Pkgbuild(name)
 	handleError(err)
-	gzip, err := gzip.NewReader(res.Body)
-	handleError(err)
-	pb := new(bytes.Buffer)
-	pb.ReadFrom(gzip)
+	pb := bytes.NewBuffer(b)
 	dbuf := new(bytes.Buffer)
 	for _, v := range []string{"depends", "makedepends"} {
 		dbuf.Write(parseBashArray(pb.Bytes(), v))
@@ -158,20 +142,22 @@ func checkDepends(name string) {
 
 // Calls search rpc and prints results
 func doSearch() {
+	defer timer.From(timer.Now())
 	if len(flag.Args()) == 0 {
 		err := os.NewError("no packages specified")
 		handleError(err)
 	}
 	arg := flag.Arg(0)
-	sr := new(SearchResults)
-	buf, err := getResults("search", arg)
+	aur, _ := NewAur()
+	sr, err := aur.Results("search", arg)
 	handleError(err)
-	err = checkInfoError(buf)
-	handleError(err)
-	err = json.Unmarshal(buf, sr)
-	handleError(err)
-	for _, r := range sr.Results {
-		fprintln(tw, r.Format())
+	for _, i := range sr.RawResults {
+		b, err := i.MarshalJSON()
+		handleError(err)
+		result := new(Result)
+		err = json.Unmarshal(b, result)
+		handleError(err)
+		fprintln(tw, result)
 	}
 	tw.Flush()
 }
@@ -190,29 +176,6 @@ func checkInfoError(buf []byte) os.Error {
 		return err
 	}
 	return nil
-}
-
-// Generic call to rpc methods
-func getResults(method, arg string) ([]byte, os.Error) {
-	buf := new(bytes.Buffer)
-	aur, _ := NewAur()
-	res, err := aur.Method(method, arg)
-	if err != nil {
-		return nil, err
-	}
-	switch res.Header.Get("Content-Encoding") {
-	case "gzip":
-		zr, err := gzip.NewReader(res.Body)
-		if err != nil {
-			return nil, err
-		}
-		_, err = io.Copy(buf, zr)
-		handleError(err)
-	default:
-		_, err := io.Copy(buf, res.Body)
-		handleError(err)
-	}
-	return buf.Bytes(), nil
 }
 
 func handleError(err os.Error) {

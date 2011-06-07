@@ -1,4 +1,4 @@
-package aur
+package main
 
 import (
 	"archive/tar"

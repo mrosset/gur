@@ -1,14 +1,18 @@
 include $(GOROOT)/src/Make.inc
 
 TARG=gur
-GOFILES=aur.go goarchive.go
+GOFILES=gur.go aur.go goarchive.go pacman.go
 GOFMT=gofmt -s -l -w
 CC=gccgo-4.7
 CFLAGS=-g -O2 -pipe
 
-include $(GOROOT)/src/Make.pkg
+include $(GOROOT)/src/Make.cmd
 
 CLEANFILES+=./tmp/*
+
+
+test: all
+	cd ./tmp;../${TARG} -d yi
 
 format:
 	${GOFMT} .

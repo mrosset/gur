@@ -1,11 +1,14 @@
-package aur
+package main
 
 import (
+	"json"
 	"testing"
+	"timer"
 )
 
 func TestPkgbuild(t *testing.T) {
 	aur, _ := NewAur()
+	defer timer.From(timer.Now())
 	_, err := aur.Pkgbuild("cower")
 	if err != nil {
 		t.Error(err)
@@ -13,6 +16,7 @@ func TestPkgbuild(t *testing.T) {
 }
 
 func TestTarball(t *testing.T) {
+	defer timer.From(timer.Now())
 	aur, _ := NewAur()
 	_, err := aur.Pkgbuild("cower")
 	if err != nil {
@@ -20,26 +24,22 @@ func TestTarball(t *testing.T) {
 	}
 }
 
-func BenchmarkPkgbuild(b *testing.B) {
+func TestMethod(t *testing.T) {
+	defer timer.From(timer.Now())
 	aur, _ := NewAur()
-	for i := 0; i < b.N; i++ {
-		_, _ = aur.Pkgbuild("cower")
+	sr, err := aur.Results("search", "git")
+	if err != nil {
+		t.Error(err)
+	}
+	for _, i := range sr.RawResults {
+		b, err := i.MarshalJSON()
+		if err != nil {
+			t.Fatal(err)
+		}
+		result := new(Result)
+		err = json.Unmarshal(b, result)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }
-
-func BenchmarkTarball(b *testing.B) {
-	aur, _ := NewAur()
-	for i := 0; i < b.N; i++ {
-		_, _ = aur.Tarball("cower")
-	}
-}
-
-/*
-func TestRawString(b *testing.B) {
-        null := bytes.NewBuffer(nil)
-        for i := 0; i < b.N; i++ {
-                null.WriteString(longtext)
-                null.Truncate(0)
-        }
-}
-*/
