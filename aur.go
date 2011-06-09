@@ -9,6 +9,7 @@ import (
 	"io"
 	"json"
 	"os"
+	"sync"
 )
 
 const (
@@ -22,16 +23,6 @@ const (
 type SearchResults struct {
 	Type       string
 	RawResults []*json.RawMessage "results"
-}
-
-type Error struct {
-	Type    string
-	Results string
-}
-
-type Info struct {
-	Type    string
-	Results Result
 }
 
 type Result struct {
@@ -48,29 +39,31 @@ type Result struct {
 }
 
 func (r Result) String() string {
-	return fmt.Sprintf("aur/%v %v (%v) \n  %v", r.Name, r.Version, r.NumVotes, r.Description)
-	return ""
+	return fmt.Sprintf("%v/%v %v (%v) \n%v", "aur", r.Name, r.Version, r.NumVotes, r.Description)
 }
 
 type Aur struct {
 	conn *http.ClientConn
-	url  *http.URL
+	sync.RWMutex
 }
 
 func NewAur() (*Aur, os.Error) {
 	var (
 		aur = new(Aur)
-		err os.Error
 	)
-	if aur.url, err = http.ParseURL(host); err != nil {
+	err := aur.connect()
+	if err != nil {
 		return nil, err
 	}
-	aur.connect()
 	return aur, nil
 }
 
 func (aur *Aur) connect() os.Error {
-	tcpConn, err := tls.Dial("tcp", aur.url.Host, nil)
+	url, err := http.ParseURL(host)
+	if err != nil {
+		return err
+	}
+	tcpConn, err := tls.Dial("tcp", url.Host, nil)
 	if err != nil {
 		return err
 	}
@@ -152,8 +145,7 @@ func (aur *Aur) buildRequest(method, rest string) (*http.Request, os.Error) {
 	req.Header.Set("Connection", "keep-alive")
 	req.Method = method
 	req.UserAgent = userAgent
-	url := aur.url.String() + rest
-	if req.URL, err = http.ParseURL(url); err != nil {
+	if req.URL, err = http.ParseURL(host + rest); err != nil {
 		return nil, err
 	}
 	return req, nil

@@ -12,7 +12,8 @@ import (
 )
 
 var (
-	packages = map[string]map[string]string{}
+	packages  = map[string]map[string]string{}
+	installed = map[string]bool{}
 )
 
 const (
@@ -20,15 +21,11 @@ const (
 	sycndb  = "/var/lib/pacman/sync"
 )
 
+
 func isInstalled(name string) bool {
-	glob := path.Join(localdb, name+"-*")
-	results, err := filepath.Glob(glob)
-	handleError(err)
-	for _, s := range results {
-		s = getName(s)
-		if s == name {
-			return true
-		}
+	installed, ok := installed[name]
+	if installed && ok {
+		return true
 	}
 	return false
 }
@@ -39,6 +36,16 @@ func getName(p string) string {
 	// remove version and package version
 	v = v[0 : len(v)-2]
 	return strings.Join(v, "-")
+}
+
+func readInstalled() {
+	glob := path.Join(localdb, "*")
+	results, err := filepath.Glob(glob)
+	handleError(err)
+	for _, s := range results {
+		s = getName(s)
+		installed[s] = true
+	}
 }
 
 func readSyncDB(p string, c chan int) {

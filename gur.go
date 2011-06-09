@@ -8,7 +8,8 @@ import (
 	"os"
 	"strings"
 	"tabwriter"
-	"timer"
+	timer "github.com/str1ngs/gotimer"
+	"sync"
 )
 
 // Constants
@@ -33,7 +34,7 @@ var (
 	test     = flag.Bool("t", false, "run tests")
 	download = flag.Bool("d", false, "download and extract tarball into working path")
 	debug    = flag.Bool("dh", false, "debug http headers")
-	//aur       *Aur
+	//aur      *Aur
 )
 
 // Prints usage detains
@@ -61,9 +62,11 @@ func main() {
 			handleError(err)
 		}
 		loadSyncCache()
+		readInstalled()
 		*search = false
 		checkDepends(flag.Arg(0))
 		doDownload(flag.Arg(0))
+		tw.Flush()
 		return
 	}
 	if *search {
@@ -99,7 +102,7 @@ func doDownload(name string) {
 	tar := NewTar()
 	err = tar.Untar("./", reader)
 	handleError(err)
-	printf("./%v\n", name)
+	fmt.Fprintf(os.Stderr, "./%v\n", name)
 }
 
 func checkDepends(name string) {
@@ -112,8 +115,7 @@ func checkDepends(name string) {
 		dbuf.Write(parseBashArray(pb.Bytes(), v))
 		dbuf.WriteString(" ")
 	}
-	count := 0
-	c := make(chan int)
+	wg := new(sync.WaitGroup)
 	for _, b := range bytes.Split(dbuf.Bytes(), []byte(" "), -1) {
 		if len(b) == 0 {
 			continue
@@ -122,22 +124,20 @@ func checkDepends(name string) {
 		repo, pr := whichRepo(depend)
 		switch pr {
 		case "":
-			fprintf(tw, "%s\t%s\t\n", depend, repo)
+			//fprintf(tw, "%s\t%s\t\n", depend, repo)
 		default:
-			fprintf(tw, "%s\t%s\t(%s)\n", depend, repo, pr)
+			//fprintf(tw, "%s\t%s\t(%s)\n", depend, repo, pr)
 		}
 		if repo == "aur" {
+			wg.Add(1)
 			go func() {
-				count++
+				checkDepends(depend)
 				doDownload(depend)
-				c <- 1
+				wg.Done()
 			}()
 		}
 	}
-	for i := 0; i < count; i++ {
-		<-c
-	}
-	tw.Flush()
+	wg.Wait()
 }
 
 // Calls search rpc and prints results
@@ -160,22 +160,6 @@ func doSearch() {
 		fprintln(tw, result)
 	}
 	tw.Flush()
-}
-
-// Checks if rpc returned a error object
-func checkInfoError(buf []byte) os.Error {
-	info := new(Info)
-	json.Unmarshal(buf, info)
-	if info.Type == "error" {
-		je := new(Error)
-		err := json.Unmarshal(buf, je)
-		if err != nil {
-			return err
-		}
-		err = os.NewError(sprintf("gur: json %v", je.Results))
-		return err
-	}
-	return nil
 }
 
 func handleError(err os.Error) {
