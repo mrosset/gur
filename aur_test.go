@@ -2,9 +2,15 @@ package main
 
 import (
 	"json"
+	"log"
 	"testing"
 	"timer"
 )
+
+func init() {
+	log.SetPrefix("")
+	log.SetFlags(0)
+}
 
 func TestPkgbuild(t *testing.T) {
 	aur, _ := NewAur()

@@ -99,7 +99,7 @@ func parseMeta(buf *bytes.Buffer, repo string) {
 	}
 	v, _ := packages[name]
 	if v != nil {
-		printf("%s exists\n", v)
+		printf("%s exists\n", name)
 	}
 	packages[name] = pack
 }

@@ -3,20 +3,20 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-	"crypto/tls"
 	"fmt"
 	"http"
 	"io"
 	"json"
 	"os"
 	"sync"
+	"net"
 )
 
 const (
 	rpc       = "rpc.php?type=%s&arg=%s"
 	pkgbuild  = "packages/%s/PKGBUILD"
 	tarball   = "packages/%s/%s.tar.gz"
-	host      = "https://aur.archlinux.org:443/"
+	host      = "http://aur.archlinux.org:80/"
 	userAgent = "curl/7.21.4 (x86_64-unknown-linux-gnu) libcurl/7.21.4 OpenSSL/1.0.0d zlib/1.2.5"
 )
 
@@ -63,7 +63,7 @@ func (aur *Aur) connect() os.Error {
 	if err != nil {
 		return err
 	}
-	tcpConn, err := tls.Dial("tcp", url.Host, nil)
+	tcpConn, err := net.Dial("tcp", url.Host)
 	if err != nil {
 		return err
 	}

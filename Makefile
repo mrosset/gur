@@ -11,8 +11,10 @@ include $(GOROOT)/src/Make.cmd
 CLEANFILES+=./tmp/*
 
 
-test: all
+test: clean all
+	#gotest
 	cd ./tmp;../${TARG} git
+	#cd ./tmp;../${TARG} -d yi
 
 format:
 	${GOFMT} .

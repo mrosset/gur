@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
@@ -26,14 +27,12 @@ var (
 	fprintln = fmt.Fprintln
 	fprintf  = fmt.Fprintf
 	tw       = tabwriter.NewWriter(os.Stderr, 1, 4, 1, ' ', 0)
-	// FIXME: change to final program name when decided. Use this so as not to give wrong userAgent
-	//userAgent = sprintf("%v/%v", program, version)
+	bufout   = bufio.NewWriter(os.Stderr)
 	search   = flag.Bool("s", true, "search aur for packages")
 	help     = flag.Bool("h", false, "displays usage")
 	quiet    = flag.Bool("q", false, "only output package names")
-	test     = flag.Bool("t", false, "run tests")
 	download = flag.Bool("d", false, "download and extract tarball into working path")
-	debug    = flag.Bool("dh", false, "debug http headers")
+	visited  = map[string]bool{}
 	//aur      *Aur
 )
 
@@ -52,10 +51,6 @@ func main() {
 		flag.Usage()
 		os.Exit(0)
 	}
-	if *test {
-		doTest()
-		os.Exit(0)
-	}
 	if *download {
 		if len(flag.Args()) == 0 {
 			err := os.NewError("no packages specified")
@@ -66,7 +61,6 @@ func main() {
 		*search = false
 		checkDepends(flag.Arg(0))
 		doDownload(flag.Arg(0))
-		tw.Flush()
 		return
 	}
 	if *search {
@@ -94,7 +88,8 @@ func doTest() {
 //TODO: fix all the crazy err handling
 func doDownload(name string) {
 	if fileExists(name) {
-		//return
+		fmt.Println(name, "exists")
+		os.Exit(1)
 	}
 	aur, _ := NewAur()
 	reader, err := aur.Tarball(name)
@@ -102,7 +97,7 @@ func doDownload(name string) {
 	tar := NewTar()
 	err = tar.Untar("./", reader)
 	handleError(err)
-	fmt.Fprintf(os.Stderr, "./%v\n", name)
+	os.Stderr.WriteString(sprintf("./%v\n", name))
 }
 
 func checkDepends(name string) {
@@ -131,8 +126,12 @@ func checkDepends(name string) {
 		if repo == "aur" {
 			wg.Add(1)
 			go func() {
-				checkDepends(depend)
-				doDownload(depend)
+				_, ok := visited[depend]
+				if !ok {
+					visited[depend] = true
+					checkDepends(depend)
+					doDownload(depend)
+				}
 				wg.Done()
 			}()
 		}
@@ -157,9 +156,9 @@ func doSearch() {
 		result := new(Result)
 		err = json.Unmarshal(b, result)
 		handleError(err)
-		fprintln(tw, result)
+		bufout.WriteString(result.String() + "\n")
 	}
-	tw.Flush()
+	bufout.Flush()
 }
 
 func handleError(err os.Error) {
