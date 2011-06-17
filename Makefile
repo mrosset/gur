@@ -12,9 +12,7 @@ CLEANFILES+=./tmp/*
 
 
 test: clean all
-	#gotest
-	cd ./tmp;../${TARG} git
-	#cd ./tmp;../${TARG} -d yi
+	cd ./tmp;../${TARG} -d yi
 
 format:
 	${GOFMT} .

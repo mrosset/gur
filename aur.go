@@ -143,8 +143,8 @@ func (aur *Aur) buildRequest(method, rest string) (*http.Request, os.Error) {
 	req.Header = http.Header{}
 	req.Header.Set("Accept-Encoding", "gzip,deflate")
 	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("User-Agent", userAgent)
 	req.Method = method
-	req.UserAgent = userAgent
 	if req.URL, err = http.ParseURL(host + rest); err != nil {
 		return nil, err
 	}

@@ -21,18 +21,20 @@ const (
 
 // Global vars
 var (
-	printf   = fmt.Printf
-	println  = fmt.Println
-	sprintf  = fmt.Sprintf
-	fprintln = fmt.Fprintln
-	fprintf  = fmt.Fprintf
-	tw       = tabwriter.NewWriter(os.Stderr, 1, 4, 1, ' ', 0)
-	bufout   = bufio.NewWriter(os.Stderr)
-	search   = flag.Bool("s", true, "search aur for packages")
-	help     = flag.Bool("h", false, "displays usage")
-	quiet    = flag.Bool("q", false, "only output package names")
-	download = flag.Bool("d", false, "download and extract tarball into working path")
-	visited  = map[string]bool{}
+	printf     = fmt.Printf
+	println    = fmt.Println
+	sprintf    = fmt.Sprintf
+	fprintln   = fmt.Fprintln
+	fprintf    = fmt.Fprintf
+	tw         = tabwriter.NewWriter(os.Stderr, 1, 4, 1, ' ', 0)
+	bufout     = bufio.NewWriter(os.Stderr)
+	isSearch   = flag.Bool("s", true, "search aur for packages")
+	isHelp     = flag.Bool("h", false, "displays usage")
+	isQuiet    = flag.Bool("q", false, "only output package names")
+	isTest     = flag.Bool("t", false, "run tests")
+	isForce    = flag.Bool("f", false, "force overwrite")
+	isDownload = flag.Bool("d", false, "download and extract tarball into working path")
+	visited    = map[string]bool{}
 	//aur      *Aur
 )
 
@@ -47,24 +49,28 @@ func main() {
 	defer timer.From(timer.Now())
 	flag.Parse()
 	flag.Usage = printDefaults
-	if *help {
+	if *isHelp {
 		flag.Usage()
 		os.Exit(0)
 	}
-	if *download {
+	if *isTest {
+		test()
+		return
+	}
+	if *isDownload {
 		if len(flag.Args()) == 0 {
 			err := os.NewError("no packages specified")
 			handleError(err)
 		}
 		loadSyncCache()
 		readInstalled()
-		*search = false
+		*isSearch = false
 		checkDepends(flag.Arg(0))
-		doDownload(flag.Arg(0))
+		download(flag.Arg(0))
 		return
 	}
-	if *search {
-		doSearch()
+	if *isSearch {
+		search()
 		return
 	}
 	flag.Usage()
@@ -82,14 +88,14 @@ func vFlag(f *flag.Flag) {
 	fprintf(tw, format, f.Name, f.Usage)
 }
 
-func doTest() {
+func test() {
 }
 
 //TODO: fix all the crazy err handling
-func doDownload(name string) {
-	if fileExists(name) {
-		fmt.Println(name, "exists")
-		os.Exit(1)
+func download(name string) {
+	if fileExists(name) && !*isForce {
+		fmt.Println(name, "exists", "skipping")
+		return
 	}
 	aur, _ := NewAur()
 	reader, err := aur.Tarball(name)
@@ -130,7 +136,7 @@ func checkDepends(name string) {
 				if !ok {
 					visited[depend] = true
 					checkDepends(depend)
-					doDownload(depend)
+					download(depend)
 				}
 				wg.Done()
 			}()
@@ -140,7 +146,7 @@ func checkDepends(name string) {
 }
 
 // Calls search rpc and prints results
-func doSearch() {
+func search() {
 	defer timer.From(timer.Now())
 	if len(flag.Args()) == 0 {
 		err := os.NewError("no packages specified")

@@ -4,7 +4,7 @@ import (
 	"json"
 	"log"
 	"testing"
-	"timer"
+	timer "github.com/str1ngs/gotimer"
 )
 
 func init() {
