@@ -2,24 +2,28 @@ package main
 
 import (
 	"bytes"
-	"compress/gzip"
+	"encoding/json"
 	"fmt"
-	"http"
 	"io"
-	"json"
-	"os"
-	"sync"
-	"net"
-	"url"
+	"io/ioutil"
+	"net/http"
+)
+
+var (
+	client = new(http.Client)
 )
 
 const (
-	rpc       = "rpc.php?type=%s&arg=%s"
-	pkgbuild  = "packages/%s/PKGBUILD"
-	tarball   = "packages/%s/%s.tar.gz"
 	host      = "http://aur.archlinux.org:80/"
+	rpc       = "%s/rpc.php?type=%s&arg=%s"
+	pkgbuild  = "%s/packages/%s/PKGBUILD"
+	tarball   = "%s/packages/%s/%s.tar.gz"
 	userAgent = "curl/7.21.4 (x86_64-unknown-linux-gnu) libcurl/7.21.4 OpenSSL/1.0.0d zlib/1.2.5"
 )
+
+func init() {
+	client = new(http.Client)
+}
 
 type SearchResults struct {
 	Type       string
@@ -44,73 +48,38 @@ func (r Result) String() string {
 }
 
 type Aur struct {
-	conn *http.ClientConn
-	sync.RWMutex
 }
 
-func NewAur() (*Aur, os.Error) {
-	var (
-		aur = new(Aur)
-	)
-	err := aur.connect()
+func GetPkgBuild(name string) ([]byte, error) {
+	res, err := client.Get(fmt.Sprintf(pkgbuild, host, name))
 	if err != nil {
 		return nil, err
 	}
-	return aur, nil
-}
-
-func (aur *Aur) connect() os.Error {
-	url, err := url.Parse(host)
-	if err != nil {
-		return err
-	}
-	tcpConn, err := net.Dial("tcp", url.Host)
-	if err != nil {
-		return err
-	}
-	aur.conn = http.NewClientConn(tcpConn, nil)
-	return nil
-}
-
-func (aur *Aur) Pkgbuild(name string) ([]byte, os.Error) {
-	req, err := aur.buildRequest("GET", fmt.Sprintf(pkgbuild, name))
-	if err != nil {
-		return nil, err
-	}
-	res, err := aur.doRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	b, err := readBody(res)
+	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
 	return b, nil
 }
 
-func (aur *Aur) Tarball(name string) (io.Reader, os.Error) {
-	req, err := aur.buildRequest("GET", fmt.Sprintf(tarball, name, name))
+func GetTarball(name string) (io.Reader, error) {
+	res, err := client.Get(fmt.Sprintf(tarball, name, name))
 	if err != nil {
 		return nil, err
 	}
-	res, err := aur.doRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	b, err := readBody(res)
+	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
 	return bytes.NewBuffer(b), nil
 }
 
-func (aur *Aur) Results(method, arg string) (sr *SearchResults, err os.Error) {
-	req, err := aur.buildRequest("GET", fmt.Sprintf(rpc, method, arg))
+func GetResults(method, arg string) (sr *SearchResults, err error) {
+	res, err := client.Get(fmt.Sprintf(rpc, host, method, arg))
 	if err != nil {
 		return nil, err
 	}
-	res, err := aur.doRequest(req)
-	b, err := readBody(res)
+	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -122,30 +91,10 @@ func (aur *Aur) Results(method, arg string) (sr *SearchResults, err os.Error) {
 	return sr, err
 }
 
-func (aur *Aur) doRequest(req *http.Request) (res *http.Response, err os.Error) {
-	_, err = http.DumpRequest(req, false)
-	if err != nil {
-		return nil, err
-	}
-	//os.Stderr.Write(b)
-	if res, err = aur.conn.Do(req); err != nil {
-		if err != http.ErrPersistEOF {
-			return nil, err
-		}
-		aur.connect()
-		aur.conn.Do(req)
-	}
-	_, err = http.DumpResponse(res, false)
-	if err != nil {
-		return nil, err
-	}
-	//os.Stderr.Write(b)
-	return res, nil
-}
-
-func (aur *Aur) buildRequest(method, rest string) (*http.Request, os.Error) {
+/*
+func (aur *Aur) buildRequest(method, rest string) (*http.Request, error) {
 	var (
-		err os.Error
+		err error
 	)
 	req := new(http.Request)
 	req.ProtoMajor = 1
@@ -161,8 +110,10 @@ func (aur *Aur) buildRequest(method, rest string) (*http.Request, os.Error) {
 	}
 	return req, nil
 }
+*/
 
-func readBody(res *http.Response) ([]byte, os.Error) {
+/*
+func readBody(res *http.Response) ([]byte, error) {
 	if res.StatusCode != 200 {
 		return nil, fmt.Errorf("Http GET failed for %s with status code %s", res.Request.URL, res.Status)
 	}
@@ -174,7 +125,4 @@ func readBody(res *http.Response) ([]byte, os.Error) {
 	io.Copy(buf, gz)
 	return buf.Bytes(), err
 }
-
-func (aur *Aur) Close() {
-	aur.conn.Close()
-}
+*/

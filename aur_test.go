@@ -1,7 +1,7 @@
 package main
 
 import (
-	"json"
+	"encoding/json"
 	"log"
 	"testing"
 )
@@ -12,24 +12,21 @@ func init() {
 }
 
 func TestPkgbuild(t *testing.T) {
-	aur, _ := NewAur()
-	_, err := aur.Pkgbuild("cower")
+	_, err := GetPkgBuild("cower")
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func TestTarball(t *testing.T) {
-	aur, _ := NewAur()
-	_, err := aur.Pkgbuild("cower")
+	_, err := GetPkgBuild("cower")
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func TestMethod(t *testing.T) {
-	aur, _ := NewAur()
-	sr, err := aur.Results("search", "git")
+	sr, err := GetResults("search", "git")
 	if err != nil {
 		t.Error(err)
 	}

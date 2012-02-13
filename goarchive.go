@@ -20,21 +20,21 @@ func NewTar() *Tar {
 	return new(Tar)
 }
 
-func (z *Tar) Peek(cr io.Reader) (dir string, err os.Error) {
+func (z *Tar) Peek(cr io.Reader) (dir string, err error) {
 	tr := tar.NewReader(cr)
 	hdr, err := tr.Next()
-	if err != nil && err != os.EOF {
+	if err != nil && err != io.EOF {
 		return "", err
 	}
 	return path.Clean(hdr.Name), nil
 }
 
 // Decompress bzip2 or gzip Reader to destination directory
-func (z *Tar) Untar(dest string, cr io.Reader) (err os.Error) {
+func (z *Tar) Untar(dest string, cr io.Reader) (err error) {
 	tr := tar.NewReader(cr)
 	for {
 		hdr, err := tr.Next()
-		if err != nil && err != os.EOF {
+		if err != nil && err != io.EOF {
 			return err
 		}
 		if hdr == nil {
@@ -51,7 +51,7 @@ func (z *Tar) Untar(dest string, cr io.Reader) (err os.Error) {
 			if z.Verbose {
 				Printf("%v\n", hdr.Name)
 			}
-			if err := mkDir(path, hdr.Mode); err != nil {
+			if err := mkDir(path, os.FileMode(hdr.Mode)); err != nil {
 				return err
 			}
 			continue
@@ -79,13 +79,13 @@ func (z *Tar) Untar(dest string, cr io.Reader) (err os.Error) {
 				// Read next iteration for file data
 				hdr, err := tr.Next()
 				if hdr.Typeflag == tar.TypeDir {
-					err := mkDir(fpath, hdr.Mode)
+					err := mkDir(fpath, os.FileMode(hdr.Mode))
 					if err != nil {
 						return err
 					}
 					continue
 				}
-				if err != nil && err != os.EOF {
+				if err != nil && err != io.EOF {
 					return err
 				}
 				// Write long file data to disk
@@ -99,11 +99,11 @@ func (z *Tar) Untar(dest string, cr io.Reader) (err os.Error) {
 }
 
 // Make directory with permission
-func mkDir(path string, mode int64) (err os.Error) {
+func mkDir(path string, mode os.FileMode) (err error) {
 	if fileExists(path) {
 		return
 	}
-	err = os.Mkdir(path, uint32(mode))
+	err = os.Mkdir(path, mode)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func mkDir(path string, mode int64) (err os.Error) {
 }
 
 // Write file from tar reader
-func writeFile(path string, hdr *tar.Header, tr *tar.Reader) (err os.Error) {
+func writeFile(path string, hdr *tar.Header, tr *tar.Reader) (err error) {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -136,7 +136,7 @@ func fileExists(path string) bool {
 	if err != nil {
 		return false
 	}
-	if fi.IsRegular() || fi.IsDirectory() {
+	if !fi.IsDir() || fi.IsDir() {
 		return true
 	}
 	return false

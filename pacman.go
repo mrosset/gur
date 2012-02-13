@@ -3,12 +3,12 @@ package main
 import (
 	"archive/tar"
 	"bytes"
-	"path"
-	"path/filepath"
-	"strings"
 	"compress/gzip"
 	"io"
 	"os"
+	"path"
+	"path/filepath"
+	"strings"
 )
 
 var (
@@ -58,10 +58,10 @@ func readSync(p string, c chan int) {
 	tr := tar.NewReader(gr)
 	for {
 		h, err := tr.Next()
-		if err != nil && err != os.EOF {
+		if err != nil && err != io.EOF {
 			handleError(err)
 		}
-		if h == nil || err == os.EOF {
+		if h == nil || err == io.EOF {
 			break
 		}
 		if h.Typeflag == tar.TypeDir {
@@ -83,7 +83,7 @@ func parseMeta(buf *bytes.Buffer, repo string) {
 	_, _ = buf.ReadByte()
 	for {
 		key, err := buf.ReadBytes('%')
-		if err == os.EOF {
+		if err == io.EOF {
 			break
 		}
 		key = bytes.Trim(key, "%")

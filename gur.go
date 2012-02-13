@@ -3,13 +3,15 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
-	"json"
+	"io"
 	"os"
 	"strings"
-	"tabwriter"
 	"sync"
+	"text/tabwriter"
 )
 
 // Constants
@@ -34,7 +36,6 @@ var (
 	isForce    = flag.Bool("f", false, "force overwrite")
 	isDownload = flag.Bool("d", false, "download and extract tarball into working path")
 	visited    = map[string]bool{}
-	//aur      *Aur
 )
 
 // Prints usage detains
@@ -57,7 +58,7 @@ func main() {
 	}
 	if *isDownload {
 		if len(flag.Args()) == 0 {
-			err := os.NewError("no packages specified")
+			err := errors.New("no packages specified")
 			handleError(err)
 		}
 		readCache()
@@ -93,8 +94,7 @@ func download(name string) {
 		fmt.Println(name, "exists", "skipping")
 		return
 	}
-	aur, _ := NewAur()
-	reader, err := aur.Tarball(name)
+	reader, err := GetTarball(name)
 	if err != nil {
 		return
 	}
@@ -104,9 +104,8 @@ func download(name string) {
 	os.Stderr.WriteString(sprintf("./%v\n", name))
 }
 
-func checkDepends(name string) os.Error {
-	aur, _ := NewAur()
-	b, err := aur.Pkgbuild(name)
+func checkDepends(name string) error {
+	b, err := GetPkgBuild(name)
 	if err != nil {
 		return err
 	}
@@ -149,13 +148,11 @@ func checkDepends(name string) os.Error {
 // Calls search rpc and prints results
 func search() {
 	if len(flag.Args()) == 0 {
-		err := os.NewError("no packages specified")
+		err := errors.New("no packages specified")
 		handleError(err)
 	}
 	arg := flag.Arg(0)
-	aur, err := NewAur()
-	handleError(err)
-	sr, err := aur.Results("search", arg)
+	sr, err := GetResults("search", arg)
 	handleError(err)
 	for _, i := range sr.RawResults {
 		b, err := i.MarshalJSON()
@@ -168,9 +165,9 @@ func search() {
 	bufout.Flush()
 }
 
-func handleError(err os.Error) {
+func handleError(err error) {
 	if err != nil {
-		printf("%v\n", err.String())
+		printf("%v\n", err.Error())
 		os.Exit(1)
 	}
 }
@@ -180,7 +177,7 @@ func parseBashArray(pkgbuild []byte, bvar string) []byte {
 	depends := new(bytes.Buffer)
 	for {
 		line, err := pkg.ReadBytes('\n')
-		if err == os.EOF {
+		if err == io.EOF {
 			break
 		}
 		if bytes.HasPrefix(line, []byte(bvar)) {
