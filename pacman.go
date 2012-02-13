@@ -21,7 +21,6 @@ const (
 	sycndb  = "/var/lib/pacman/sync"
 )
 
-
 func isInstalled(name string) bool {
 	installed, ok := installed[name]
 	if installed && ok {
@@ -32,7 +31,7 @@ func isInstalled(name string) bool {
 
 func getName(p string) string {
 	p = path.Base(p)
-	v := strings.Split(p, "-", -1)
+	v := strings.Split(p, "-")
 	// remove version and package version
 	v = v[0 : len(v)-2]
 	return strings.Join(v, "-")
@@ -48,7 +47,7 @@ func readInstalled() {
 	}
 }
 
-func readSyncDB(p string, c chan int) {
+func readSync(p string, c chan int) {
 	repo := path.Base(path.Base(p))
 	repo = repo[0 : len(repo)-3]
 	f, err := os.Open(p)
@@ -104,14 +103,18 @@ func parseMeta(buf *bytes.Buffer, repo string) {
 	packages[name] = pack
 }
 
-func loadSyncCache() {
+func readCache() {
+	readInstalled()
+	readSyncCache()
+}
+func readSyncCache() {
 	glob := path.Join(sycndb, "*.db")
 	results, err := filepath.Glob(glob)
 	handleError(err)
 	c := make(chan int)
 	for _, v := range results {
 		printf("reading %s\n", v)
-		go readSyncDB(v, c)
+		go readSync(v, c)
 	}
 	for _ = range results {
 		<-c

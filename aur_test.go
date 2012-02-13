@@ -4,7 +4,6 @@ import (
 	"json"
 	"log"
 	"testing"
-	timer "github.com/str1ngs/gotimer"
 )
 
 func init() {
@@ -14,7 +13,6 @@ func init() {
 
 func TestPkgbuild(t *testing.T) {
 	aur, _ := NewAur()
-	defer timer.From(timer.Now())
 	_, err := aur.Pkgbuild("cower")
 	if err != nil {
 		t.Error(err)
@@ -22,7 +20,6 @@ func TestPkgbuild(t *testing.T) {
 }
 
 func TestTarball(t *testing.T) {
-	defer timer.From(timer.Now())
 	aur, _ := NewAur()
 	_, err := aur.Pkgbuild("cower")
 	if err != nil {
@@ -31,7 +28,6 @@ func TestTarball(t *testing.T) {
 }
 
 func TestMethod(t *testing.T) {
-	defer timer.From(timer.Now())
 	aur, _ := NewAur()
 	sr, err := aur.Results("search", "git")
 	if err != nil {

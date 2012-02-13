@@ -124,7 +124,6 @@ func writeFile(path string, hdr *tar.Header, tr *tar.Reader) (err os.Error) {
 	return
 }
 
-
 func (z *Tar) pVerbose(path string) {
 	if z.Verbose {
 		Printf("%v\n", path)

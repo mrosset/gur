@@ -10,6 +10,7 @@ import (
 	"os"
 	"sync"
 	"net"
+	"url"
 )
 
 const (
@@ -22,7 +23,7 @@ const (
 
 type SearchResults struct {
 	Type       string
-	RawResults []*json.RawMessage "results"
+	RawResults []*json.RawMessage `json:"results"`
 }
 
 type Result struct {
@@ -59,7 +60,7 @@ func NewAur() (*Aur, os.Error) {
 }
 
 func (aur *Aur) connect() os.Error {
-	url, err := http.ParseURL(host)
+	url, err := url.Parse(host)
 	if err != nil {
 		return err
 	}
@@ -122,6 +123,11 @@ func (aur *Aur) Results(method, arg string) (sr *SearchResults, err os.Error) {
 }
 
 func (aur *Aur) doRequest(req *http.Request) (res *http.Response, err os.Error) {
+	_, err = http.DumpRequest(req, false)
+	if err != nil {
+		return nil, err
+	}
+	//os.Stderr.Write(b)
 	if res, err = aur.conn.Do(req); err != nil {
 		if err != http.ErrPersistEOF {
 			return nil, err
@@ -129,6 +135,11 @@ func (aur *Aur) doRequest(req *http.Request) (res *http.Response, err os.Error) 
 		aur.connect()
 		aur.conn.Do(req)
 	}
+	_, err = http.DumpResponse(res, false)
+	if err != nil {
+		return nil, err
+	}
+	//os.Stderr.Write(b)
 	return res, nil
 }
 
@@ -145,16 +156,15 @@ func (aur *Aur) buildRequest(method, rest string) (*http.Request, os.Error) {
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("User-Agent", userAgent)
 	req.Method = method
-	if req.URL, err = http.ParseURL(host + rest); err != nil {
+	if req.URL, err = url.Parse(host + rest); err != nil {
 		return nil, err
 	}
 	return req, nil
 }
 
 func readBody(res *http.Response) ([]byte, os.Error) {
-	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return nil, os.NewError(fmt.Sprintf("Http GET failed for %s with status code %s", res.Request.URL, res.Status))
+		return nil, fmt.Errorf("Http GET failed for %s with status code %s", res.Request.URL, res.Status)
 	}
 	gz, err := gzip.NewReader(res.Body)
 	if err != nil {

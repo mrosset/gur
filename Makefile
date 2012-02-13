@@ -12,6 +12,7 @@ CLEANFILES+=./tmp/*
 
 
 test: clean all
+	./${TARG} git
 	cd ./tmp;../${TARG} -d yi
 
 format:

@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 	"tabwriter"
-	timer "github.com/str1ngs/gotimer"
 	"sync"
 )
 
@@ -27,7 +26,7 @@ var (
 	fprintln   = fmt.Fprintln
 	fprintf    = fmt.Fprintf
 	tw         = tabwriter.NewWriter(os.Stderr, 1, 4, 1, ' ', 0)
-	bufout     = bufio.NewWriter(os.Stderr)
+	bufout     = bufio.NewWriter(os.Stdout)
 	isSearch   = flag.Bool("s", true, "search aur for packages")
 	isHelp     = flag.Bool("h", false, "displays usage")
 	isQuiet    = flag.Bool("q", false, "only output package names")
@@ -46,7 +45,6 @@ func usage() {
 
 // Program entry
 func main() {
-	defer timer.From(timer.Now())
 	flag.Parse()
 	flag.Usage = printDefaults
 	if *isHelp {
@@ -62,9 +60,7 @@ func main() {
 			err := os.NewError("no packages specified")
 			handleError(err)
 		}
-		loadSyncCache()
-		readInstalled()
-		*isSearch = false
+		readCache()
 		checkDepends(flag.Arg(0))
 		download(flag.Arg(0))
 		return
@@ -99,17 +95,21 @@ func download(name string) {
 	}
 	aur, _ := NewAur()
 	reader, err := aur.Tarball(name)
-	handleError(err)
+	if err != nil {
+		return
+	}
 	tar := NewTar()
 	err = tar.Untar("./", reader)
 	handleError(err)
 	os.Stderr.WriteString(sprintf("./%v\n", name))
 }
 
-func checkDepends(name string) {
+func checkDepends(name string) os.Error {
 	aur, _ := NewAur()
 	b, err := aur.Pkgbuild(name)
-	handleError(err)
+	if err != nil {
+		return err
+	}
 	pb := bytes.NewBuffer(b)
 	dbuf := new(bytes.Buffer)
 	for _, v := range []string{"depends", "makedepends"} {
@@ -117,7 +117,7 @@ func checkDepends(name string) {
 		dbuf.WriteString(" ")
 	}
 	wg := new(sync.WaitGroup)
-	for _, b := range bytes.Split(dbuf.Bytes(), []byte(" "), -1) {
+	for _, b := range bytes.Split(dbuf.Bytes(), []byte(" ")) {
 		if len(b) == 0 {
 			continue
 		}
@@ -143,17 +143,18 @@ func checkDepends(name string) {
 		}
 	}
 	wg.Wait()
+	return nil
 }
 
 // Calls search rpc and prints results
 func search() {
-	defer timer.From(timer.Now())
 	if len(flag.Args()) == 0 {
 		err := os.NewError("no packages specified")
 		handleError(err)
 	}
 	arg := flag.Arg(0)
-	aur, _ := NewAur()
+	aur, err := NewAur()
+	handleError(err)
 	sr, err := aur.Results("search", arg)
 	handleError(err)
 	for _, i := range sr.RawResults {
@@ -199,7 +200,7 @@ func parseBashArray(pkgbuild []byte, bvar string) []byte {
 	}
 	b := depends.Bytes()
 	depends.Reset()
-	for _, d := range bytes.Split(b, []byte(" "), -1) {
+	for _, d := range bytes.Split(b, []byte(" ")) {
 		if len(d) == 0 {
 			continue
 		}
@@ -208,13 +209,13 @@ func parseBashArray(pkgbuild []byte, bvar string) []byte {
 		d = bytes.Replace(d, []byte(" "), nil, -1)
 		switch {
 		case strings.Contains(string(d), ">"):
-			s := bytes.Split(d, []byte(">"), -1)
+			s := bytes.Split(d, []byte(">"))
 			depends.WriteString(string(s[0]) + " ")
 		case strings.Contains(string(d), "<"):
-			s := bytes.Split(d, []byte("<"), -1)
+			s := bytes.Split(d, []byte("<"))
 			depends.WriteString(string(s[0]) + " ")
 		case strings.Contains(string(d), "="):
-			s := bytes.Split(d, []byte("="), -1)
+			s := bytes.Split(d, []byte("="))
 			depends.WriteString(string(s[0]) + " ")
 		default:
 			depends.WriteString(string(d) + " ")
