@@ -7,8 +7,9 @@ CLEANFILES+=./tmp/*
 gur:
 	go build
 
-test: 
+test: gur
 	go test
+	./gur -d cower
 
 format:
 	${GOFMT} .

@@ -19,7 +19,7 @@ func TestPkgbuild(t *testing.T) {
 }
 
 func TestTarball(t *testing.T) {
-	_, err := GetPkgBuild("cower")
+	_, err := GetTarball("cower")
 	if err != nil {
 		t.Error(err)
 	}

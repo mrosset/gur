@@ -16,8 +16,8 @@ var (
 const (
 	host      = "http://aur.archlinux.org:80/"
 	rpc       = "%s/rpc.php?type=%s&arg=%s"
-	pkgbuild  = "%s/packages/%s/PKGBUILD"
-	tarball   = "%s/packages/%s/%s.tar.gz"
+	pkgbuild  = "%s/packages/%s/%s/PKGBUILD"
+	tarball   = "%s/packages/%s/%s/%s.tar.gz"
 	userAgent = "curl/7.21.4 (x86_64-unknown-linux-gnu) libcurl/7.21.4 OpenSSL/1.0.0d zlib/1.2.5"
 )
 
@@ -51,7 +51,8 @@ type Aur struct {
 }
 
 func GetPkgBuild(name string) ([]byte, error) {
-	res, err := client.Get(fmt.Sprintf(pkgbuild, host, name))
+	res, err := client.Get(fmt.Sprintf(pkgbuild, host, name[0:2], name))
+	err = checkRes(res, err)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +64,8 @@ func GetPkgBuild(name string) ([]byte, error) {
 }
 
 func GetTarball(name string) (io.Reader, error) {
-	res, err := client.Get(fmt.Sprintf(tarball, name, name))
+	res, err := client.Get(fmt.Sprintf(tarball, host, name[0:2], name, name))
+	err = checkRes(res, err)
 	if err != nil {
 		return nil, err
 	}
@@ -76,6 +78,7 @@ func GetTarball(name string) (io.Reader, error) {
 
 func GetResults(method, arg string) (sr *SearchResults, err error) {
 	res, err := client.Get(fmt.Sprintf(rpc, host, method, arg))
+	err = checkRes(res, err)
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +92,16 @@ func GetResults(method, arg string) (sr *SearchResults, err error) {
 		return nil, err
 	}
 	return sr, err
+}
+
+func checkRes(res *http.Response, err error) error {
+	if err != nil {
+		return err
+	}
+	if res.StatusCode != 200 {
+		return fmt.Errorf("Http GET failed for %s with status code %s", res.Request.URL, res.Status)
+	}
+	return nil
 }
 
 /*

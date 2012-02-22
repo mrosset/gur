@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -98,8 +99,10 @@ func download(name string) {
 	if err != nil {
 		return
 	}
+	gz, err := gzip.NewReader(reader)
+	handleError(err)
 	tar := NewTar()
-	err = tar.Untar("./", reader)
+	err = tar.Untar("./", gz)
 	handleError(err)
 	os.Stderr.WriteString(sprintf("./%v\n", name))
 }
