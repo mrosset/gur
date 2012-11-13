@@ -9,7 +9,7 @@ import (
 	"path"
 )
 
-// Struct used to decompress 
+// Struct used to decompress
 type Tar struct {
 	Verbose bool
 	Debug   bool
@@ -43,7 +43,7 @@ func (z *Tar) Untar(dest string, cr io.Reader) (err error) {
 		if z.Debug {
 			Printf("%v\n", hdr)
 		}
-		// Switch through header Typeflag and handle tar entry accordingly 
+		// Switch through header Typeflag and handle tar entry accordingly
 		switch hdr.Typeflag {
 		// Handles Directories
 		case tar.TypeDir:

@@ -31,16 +31,16 @@ type SearchResults struct {
 }
 
 type Result struct {
-	Id          string
+	Id          int
 	Name        string
 	Version     string
-	CategoryID  string
+	CategoryID  int
 	Description string
 	URL         string
 	URLPath     string
 	Licensce    string
-	NumVotes    string
-	OutOfDate   string
+	NumVotes    int
+	OutOfDate   int
 }
 
 func (r Result) String() string {
