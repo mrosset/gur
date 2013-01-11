@@ -26,7 +26,7 @@ func TestTarball(t *testing.T) {
 }
 
 func TestMethod(t *testing.T) {
-	sr, err := GetResults("search", "git")
+	sr, err := GetResults("search", "pacman")
 	if err != nil {
 		t.Error(err)
 	}

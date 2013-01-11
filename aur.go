@@ -89,7 +89,10 @@ func GetResults(method, arg string) (sr *SearchResults, err error) {
 	sr = new(SearchResults)
 	err = json.Unmarshal(b, sr)
 	if err != nil {
-		return nil, err
+		// try to get a more meaningful error
+		jerr := make(map[string]interface{})
+		err = json.Unmarshal(b, &jerr)
+		return nil, fmt.Errorf(jerr["results"].(string))
 	}
 	return sr, err
 }
