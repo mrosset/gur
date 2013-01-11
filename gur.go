@@ -157,13 +157,21 @@ func search() {
 	arg := flag.Arg(0)
 	sr, err := GetResults("search", arg)
 	handleError(err)
-	for _, i := range sr.RawResults {
+	nmax := len(sr.RawResults)
+	for idx, i := range sr.RawResults {
 		b, err := i.MarshalJSON()
 		handleError(err)
 		result := new(Result)
 		err = json.Unmarshal(b, result)
 		handleError(err)
-		bufout.WriteString(result.String() + "\n")
+		if !*isQuiet {
+			bufout.WriteString(result.String() + "\n")
+			if idx+1 < nmax {
+				bufout.WriteString("\n")
+			}
+		} else {
+			bufout.WriteString(result.Name + "\n")
+		}
 	}
 	bufout.Flush()
 }
