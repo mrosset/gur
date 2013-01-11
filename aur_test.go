@@ -12,23 +12,23 @@ func init() {
 }
 
 func TestPkgbuild(t *testing.T) {
-	_, err := GetPkgBuild("cower")
+	_, err := GetPkgBuild("pacman-git")
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func TestTarball(t *testing.T) {
-	_, err := GetTarball("cower")
+	_, err := GetTarball("pacman-git")
 	if err != nil {
 		t.Error(err)
 	}
 }
 
-func TestMethod(t *testing.T) {
-	sr, err := GetResults("search", "pacman")
+func TestSearch(t *testing.T) {
+	sr, err := GetResults("search", "pacman-git")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	for _, i := range sr.RawResults {
 		b, err := i.MarshalJSON()
